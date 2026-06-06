@@ -108,8 +108,10 @@ public class MessageService {
 
         for (Message message : pendingMessages) {
             message.markDelivered();
+
             MessageResponse response = MessageResponse.from(message);
 
+            notificationService.send(userId, "message-received", response);
             notificationService.send(message.getSender().getId(), "message-status-updated", response);
         }
 
