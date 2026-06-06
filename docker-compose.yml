@@ -1,0 +1,6 @@
+services:
+  chat-app:
+    build: .
+    container_name: bfg-test-task
+    ports:
+      - "8080:8080"
