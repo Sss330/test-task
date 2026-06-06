@@ -1,5 +1,6 @@
 package test.task.bfg.service;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import test.task.bfg.exception.ConflictException;
@@ -13,14 +14,11 @@ import test.task.bfg.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
-
-    public UserService(UserRepository userRepository) {
-        this.userRepository = userRepository;
-    }
 
     @Transactional
     public UserResponse create(CreateUserRequest request) {

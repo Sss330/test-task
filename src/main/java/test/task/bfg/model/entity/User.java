@@ -7,12 +7,17 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 @Entity
 @Table(name = "users")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User {
 
     @Id
@@ -28,9 +33,6 @@ public class User {
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
 
-    protected User() {
-    }
-
     public User(String username, String displayName) {
         this.username = username;
         this.displayName = displayName;
@@ -39,21 +41,5 @@ public class User {
     @PrePersist
     void prePersist() {
         createdAt = Instant.now();
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public String getUsername() {
-        return username;
-    }
-
-    public String getDisplayName() {
-        return displayName;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
     }
 }

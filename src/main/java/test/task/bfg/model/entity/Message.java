@@ -12,13 +12,18 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 import test.task.bfg.model.enums.MessageStatus;
 
 import java.time.Instant;
 import java.util.UUID;
 
+@Getter
 @Entity
 @Table(name = "messages")
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Message {
 
     @Id
@@ -46,9 +51,6 @@ public class Message {
     private Instant deliveredAt;
 
     private Instant readAt;
-
-    protected Message() {
-    }
 
     public Message(User sender, User receiver, String text) {
         this.sender = sender;
@@ -78,37 +80,5 @@ public class Message {
                 deliveredAt = Instant.now();
             }
         }
-    }
-
-    public UUID getId() {
-        return id;
-    }
-
-    public User getSender() {
-        return sender;
-    }
-
-    public User getReceiver() {
-        return receiver;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public MessageStatus getStatus() {
-        return status;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public Instant getDeliveredAt() {
-        return deliveredAt;
-    }
-
-    public Instant getReadAt() {
-        return readAt;
     }
 }

@@ -1,5 +1,6 @@
 package test.task.bfg.service;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -16,22 +17,13 @@ import test.task.bfg.repository.UserRepository;
 import java.util.List;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 @Service
 public class MessageService {
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final SseNotificationService notificationService;
-
-    public MessageService(
-            MessageRepository messageRepository,
-            UserRepository userRepository,
-            SseNotificationService notificationService
-    ) {
-        this.messageRepository = messageRepository;
-        this.userRepository = userRepository;
-        this.notificationService = notificationService;
-    }
 
     @Transactional
     public MessageResponse send(SendMessageRequest request) {
