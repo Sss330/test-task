@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import test.task.bfg.exception.BadRequestException;
+import test.task.bfg.exception.ForbiddenException;
 import test.task.bfg.exception.NotFoundException;
 import test.task.bfg.model.dto.request.SendMessageRequest;
 import test.task.bfg.model.dto.response.MessageResponse;
@@ -26,7 +27,11 @@ public class MessageService {
     private final SseNotificationService notificationService;
 
     @Transactional
-    public MessageResponse send(SendMessageRequest request) {
+    public MessageResponse send(UUID currentUserId, SendMessageRequest request) {
+        if (!currentUserId.equals(request.senderId())) {
+            throw new ForbiddenException("Current user cannot send message on behalf of another user");
+        }
+
         if (request.senderId().equals(request.receiverId())) {
             throw new BadRequestException("Sender and receiver must be different users");
         }
@@ -50,14 +55,24 @@ public class MessageService {
     }
 
     @Transactional(readOnly = true)
-    public MessageResponse findById(UUID messageId) {
-        return messageRepository.findById(messageId)
-                .map(MessageResponse::from)
-                .orElseThrow(() -> new NotFoundException("Message not found: " + messageId));
+    public MessageResponse findById(UUID currentUserId, UUID messageId) {
+        Message message = getMessageOrThrow(messageId);
+
+        validateMessageParticipant(currentUserId, message);
+
+        return MessageResponse.from(message);
     }
 
     @Transactional(readOnly = true)
-    public List<MessageResponse> findConversation(UUID firstUserId, UUID secondUserId) {
+    public List<MessageResponse> findConversation(
+            UUID currentUserId,
+            UUID firstUserId,
+            UUID secondUserId
+    ) {
+        if (!currentUserId.equals(firstUserId) && !currentUserId.equals(secondUserId)) {
+            throw new ForbiddenException("Current user can view only own conversations");
+        }
+
         getUserOrThrow(firstUserId);
         getUserOrThrow(secondUserId);
 
@@ -68,9 +83,12 @@ public class MessageService {
     }
 
     @Transactional
-    public MessageResponse markAsRead(UUID messageId, UUID readerId) {
-        Message message = messageRepository.findById(messageId)
-                .orElseThrow(() -> new NotFoundException("Message not found: " + messageId));
+    public MessageResponse markAsRead(UUID currentUserId, UUID messageId, UUID readerId) {
+        if (!currentUserId.equals(readerId)) {
+            throw new ForbiddenException("Current user cannot mark message as read on behalf of another user");
+        }
+
+        Message message = getMessageOrThrow(messageId);
 
         if (!message.getReceiver().getId().equals(readerId)) {
             throw new BadRequestException("Only receiver can mark message as read");
@@ -88,7 +106,11 @@ public class MessageService {
     }
 
     @Transactional
-    public SseEmitter subscribe(UUID userId) {
+    public SseEmitter subscribe(UUID currentUserId, UUID userId) {
+        if (!currentUserId.equals(userId)) {
+            throw new ForbiddenException("Current user cannot subscribe to another user's stream");
+        }
+
         getUserOrThrow(userId);
 
         SseEmitter emitter = notificationService.subscribe(userId);
@@ -110,8 +132,22 @@ public class MessageService {
         return emitter;
     }
 
+    private Message getMessageOrThrow(UUID messageId) {
+        return messageRepository.findById(messageId)
+                .orElseThrow(() -> new NotFoundException("Message not found: " + messageId));
+    }
+
     private User getUserOrThrow(UUID userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found: " + userId));
+    }
+
+    private void validateMessageParticipant(UUID currentUserId, Message message) {
+        boolean isSender = message.getSender().getId().equals(currentUserId);
+        boolean isReceiver = message.getReceiver().getId().equals(currentUserId);
+
+        if (!isSender && !isReceiver) {
+            throw new ForbiddenException("Current user can view only own messages");
+        }
     }
 }

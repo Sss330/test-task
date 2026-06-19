@@ -7,6 +7,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 import test.task.bfg.exception.BadRequestException;
+import test.task.bfg.exception.ForbiddenException;
 import test.task.bfg.model.dto.request.SendMessageRequest;
 import test.task.bfg.model.dto.response.MessageResponse;
 import test.task.bfg.model.entity.Message;
@@ -60,7 +61,7 @@ class MessageServiceTest {
         when(notificationService.hasSubscribers(receiverId)).thenReturn(true);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        MessageResponse response = messageService.send(request);
+        MessageResponse response = messageService.send(senderId, request);
 
         assertThat(response.senderId()).isEqualTo(senderId);
         assertThat(response.receiverId()).isEqualTo(receiverId);
@@ -73,6 +74,25 @@ class MessageServiceTest {
     }
 
     @Test
+    void sendShouldThrowForbiddenExceptionWhenCurrentUserIsNotSender() {
+        UUID currentUserId = UUID.randomUUID();
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+
+        SendMessageRequest request = new SendMessageRequest(
+                senderId,
+                receiverId,
+                "Hello!"
+        );
+
+        assertThatThrownBy(() -> messageService.send(currentUserId, request))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("Current user cannot send message on behalf of another user");
+
+        verify(messageRepository, never()).save(any(Message.class));
+    }
+
+    @Test
     void sendShouldThrowBadRequestExceptionWhenSenderSendsMessageToHimself() {
         UUID userId = UUID.randomUUID();
 
@@ -82,7 +102,7 @@ class MessageServiceTest {
                 "Hello myself!"
         );
 
-        assertThatThrownBy(() -> messageService.send(request))
+        assertThatThrownBy(() -> messageService.send(userId, request))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Sender and receiver must be different users");
 
@@ -103,7 +123,7 @@ class MessageServiceTest {
         when(messageRepository.findById(messageId)).thenReturn(Optional.of(message));
         when(messageRepository.save(message)).thenReturn(message);
 
-        MessageResponse response = messageService.markAsRead(messageId, receiverId);
+        MessageResponse response = messageService.markAsRead(receiverId, messageId, receiverId);
 
         assertThat(response.status()).isEqualTo(MessageStatus.READ);
         assertThat(response.readAt()).isNotNull();
@@ -112,6 +132,20 @@ class MessageServiceTest {
         verify(messageRepository).save(message);
         verify(notificationService).send(eq(senderId), eq("message-status-updated"), any(MessageResponse.class));
         verify(notificationService).send(eq(receiverId), eq("message-status-updated"), any(MessageResponse.class));
+    }
+
+    @Test
+    void markAsReadShouldThrowForbiddenExceptionWhenCurrentUserIsNotReader() {
+        UUID currentUserId = UUID.randomUUID();
+        UUID messageId = UUID.randomUUID();
+        UUID readerId = UUID.randomUUID();
+
+        assertThatThrownBy(() -> messageService.markAsRead(currentUserId, messageId, readerId))
+                .isInstanceOf(ForbiddenException.class)
+                .hasMessageContaining("Current user cannot mark message as read on behalf of another user");
+
+        verify(messageRepository, never()).findById(any(UUID.class));
+        verify(messageRepository, never()).save(any(Message.class));
     }
 
     @Test
@@ -128,7 +162,7 @@ class MessageServiceTest {
 
         when(messageRepository.findById(messageId)).thenReturn(Optional.of(message));
 
-        assertThatThrownBy(() -> messageService.markAsRead(messageId, anotherUserId))
+        assertThatThrownBy(() -> messageService.markAsRead(anotherUserId, messageId, anotherUserId))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("Only receiver can mark message as read");
 

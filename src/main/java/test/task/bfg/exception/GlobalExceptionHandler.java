@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -94,6 +95,26 @@ public class GlobalExceptionHandler {
                 "Unexpected server error",
                 request
         );
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<ErrorResponse> handleForbidden(
+            ForbiddenException exception,
+            HttpServletRequest request
+    ) {
+        log.warn("Forbidden request on {}: {}", request.getRequestURI(), exception.getMessage());
+        return buildResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(MissingRequestHeaderException.class)
+    public ResponseEntity<ErrorResponse> handleMissingRequestHeader(
+            MissingRequestHeaderException exception,
+            HttpServletRequest request
+    ) {
+        String message = "Required request header is missing: " + exception.getHeaderName();
+
+        log.warn("Missing request header on {}: {}", request.getRequestURI(), message);
+        return buildResponse(HttpStatus.BAD_REQUEST, message, request);
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(
